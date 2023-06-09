@@ -24,7 +24,7 @@ cargo bench
 
 There is baseline code that implements section 4 of [this](http://www.acsel-lab.com/arithmetic/arith23/data/1616a047.pdf) paper in `cuda/mult.cu` file. It is expected that only this file will be edited, the rest of the repo is meant to provide the infrastructure for easy testing and benchmarking.
 
-You can parallelize the multiplier, or do the opposite - the only optimization goal is throughput.
+You can parallelize the multiplier, or do the opposite - the only optimization goal is throughput. You can also change between 32-bit and 64-bit limbs, try using floating point arithmetic etc.
 
 Any machine can be used, the only limitation is using a single GPU for measurements.
 

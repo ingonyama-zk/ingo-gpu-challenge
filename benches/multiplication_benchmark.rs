@@ -6,7 +6,7 @@ use rustacuda::prelude::DeviceBuffer;
 
 
 // This number should be large enough to fully saturate the GPU
-const SIZE: usize = 1 << 25;
+const SIZE: usize = 1 << 20;
 
 fn bench(c: &mut Criterion) {
     let _ctx = rustacuda::quick_init();
@@ -25,7 +25,7 @@ fn bench(c: &mut Criterion) {
     c.bench_function(
         &format!("Benchmarking multiplication of size {}", SIZE),
         |b| b.iter(|| {
-            multiply_cuda(&mut a_device, &mut b_device, SIZE);
+            multiply_cuda(&mut a_device, &mut b_device, SIZE, true);
         }),
     );
 }

@@ -121,35 +121,53 @@ static __device__ __forceinline__ void multiply_raw_device(const bigint &as, con
     even[i + 1] = ptx::addc(even[i + 1], 0);
 }
 
+bigint __device__ __forceinline__ get_lower_half(const bigint_wide &x) {
+    bigint out{};
+    #pragma unroll
+    for (unsigned i = 0; i < TLC; i++)
+        out.limbs[i] = x.limbs[i];
+    return out;
+  }
 
-// The kernel that does element-wise multiplication of arrays in1 and in2 and
+
+// The kernel that does element-wise multiplication of arrays in1 and in2 N times
+template <int N>
 __global__ void multVectorsKernel(const bigint *in1, const bigint *in2, bigint_wide *out, size_t n)
 {
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     if (tid < n)
     {
-        multiply_raw_device(in1[tid], in2[tid], out[tid]);
+        bigint i1 = in1[tid];
+        const bigint i2 = in2[tid];
+        bigint_wide o = {0};
+        #pragma unroll
+        for (int i = 0; i < N - 1; i++) {
+            multiply_raw_device(i1, i2, o);
+            i1 = get_lower_half(o);
+        }
+        multiply_raw_device(i1, i2, out[tid]);
     }
 }
 
+template <int N>
 int mult_vectors(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
 {
     // Set the grid and block dimensions
-    int threads_per_block = 32;
+    int threads_per_block = 128;
     int num_blocks = (n + threads_per_block - 1) / threads_per_block + 1;
 
-    multVectorsKernel<<<num_blocks, threads_per_block>>>(in1, in2, out, n);
+    multVectorsKernel<N><<<num_blocks, threads_per_block>>>(in1, in2, out, n);
 
     return 0;
 }
 
 
 extern "C"
-int multiply(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
+int multiply_test(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
 {
     try
     {
-        mult_vectors(in1, in2, out, n);
+        mult_vectors<1>(in1, in2, out, n);
         return CUDA_SUCCESS;
     }
     catch (const std::runtime_error &ex)
@@ -157,3 +175,18 @@ int multiply(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
         return -1;
     }
 }
+
+extern "C"
+int multiply_bench(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
+{
+    try
+    {
+        mult_vectors<255>(in1, in2, out, n);
+        return CUDA_SUCCESS;
+    }
+    catch (const std::runtime_error &ex)
+    {
+        return -1;
+    }
+}
+

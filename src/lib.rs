@@ -21,7 +21,16 @@ unsafe impl DeviceCopy for BigInt512 {}
 
 
 extern "C" {
-    fn multiply(
+    fn multiply_test(
+        in1: DevicePointer<BigInt256>,
+        in2: DevicePointer<BigInt256>,
+        out: DevicePointer<BigInt512>,
+        count: usize,
+    ) -> usize;
+}
+
+extern "C" {
+    fn multiply_bench(
         in1: DevicePointer<BigInt256>,
         in2: DevicePointer<BigInt256>,
         out: DevicePointer<BigInt512>,
@@ -33,15 +42,25 @@ pub fn multiply_cuda(
     in1: &mut DeviceBuffer<BigInt256>,
     in2: &mut DeviceBuffer<BigInt256>,
     count: usize,
+    bench: bool,
 ) -> DeviceBuffer<BigInt512> {
     let mut res: DeviceBuffer<BigInt512> = unsafe { DeviceBuffer::uninitialized(count).unwrap() };
     let err = unsafe {
-        multiply(
-            in1.as_device_ptr(),
-            in2.as_device_ptr(),
-            res.as_device_ptr(),
-            count,
-        )
+        if bench {
+            multiply_bench(
+                in1.as_device_ptr(),
+                in2.as_device_ptr(),
+                res.as_device_ptr(),
+                count,
+            )
+        } else {
+            multiply_test(
+                in1.as_device_ptr(),
+                in2.as_device_ptr(),
+                res.as_device_ptr(),
+                count,
+            )
+        }
     };
     if err != 0 {
         panic!("Error {} occured", err);
@@ -67,7 +86,7 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<BigUint>, Vec<BigUint>) {
 fn test_mult() {
     let _ctx = rustacuda::quick_init();
 
-    let n = 1 << 25;
+    let n = 1 << 15;
     let (a, b) = sample_random_bigints256(n);
 
     let a_bigint: Vec<BigInt256> = a.iter().map(|a_num| 
@@ -79,11 +98,11 @@ fn test_mult() {
     let mut a_device = DeviceBuffer::from_slice(&a_bigint[..]).unwrap();
     let mut b_device = DeviceBuffer::from_slice(&b_bigint[..]).unwrap();
 
-    let res_device = multiply_cuda(&mut a_device, &mut b_device, n);
+    let res_device = multiply_cuda(&mut a_device, &mut b_device, n, false);
     let mut res: Vec<BigInt512> = (0..n).map(|_| BigInt512 { s: [0;16] }).collect();
     res_device.copy_to(&mut res[..]).unwrap();
 
-    // for i in 0..n {
-    //     assert_eq!(res[i], BigInt512 { s: (a[i].clone() * b[i].clone()).to_u32_digits().try_into().unwrap() } );
-    // }
+    for i in 0..n {
+        assert_eq!(res[i], BigInt512 { s: (a[i].clone() * b[i].clone()).to_u32_digits().try_into().unwrap() } );
+    }
 }

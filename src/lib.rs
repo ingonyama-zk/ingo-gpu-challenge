@@ -81,7 +81,8 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<BigUint>, Vec<BigUint>) {
     (a, b)
 }
 
-// A test to check the correctness of the CUDA multiplier
+// A test to check the correctness of the CUDA multiplier;
+// Uses `num_bigint` crate to check against.
 #[test]
 fn test_mult() {
     let _ctx = rustacuda::quick_init();

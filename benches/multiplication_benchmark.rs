@@ -6,7 +6,7 @@ use rustacuda::prelude::DeviceBuffer;
 
 
 // This number should be large enough to fully saturate the GPU
-const SIZE: usize = 1 << 20;
+const SIZE: usize = 1 << 25;
 
 fn bench(c: &mut Criterion) {
     let _ctx = rustacuda::quick_init();

@@ -121,6 +121,8 @@ static __device__ __forceinline__ void multiply_raw_device(const bigint &as, con
     even[i + 1] = ptx::addc(even[i + 1], 0);
 }
 
+// a method to create a 256-bit number from 512-bit result to be able to perpetually
+// repeat the multiplication using registers
 bigint __device__ __forceinline__ get_lower_half(const bigint_wide &x) {
     bigint out{};
     #pragma unroll
@@ -181,6 +183,8 @@ int multiply_bench(const bigint in1[], const bigint in2[], bigint_wide *out, siz
 {
     try
     {
+        // for benchmarking, we need to give each thread a number of multiplication tasks that would ensure
+        // that we're mostly measuring compute and not global memory accesses, which is why we do 255 multiplications here
         mult_vectors<255>(in1, in2, out, n);
         return CUDA_SUCCESS;
     }

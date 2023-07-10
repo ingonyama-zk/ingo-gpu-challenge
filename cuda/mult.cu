@@ -123,18 +123,18 @@ static __device__ __forceinline__ void multiply_raw_device(const bigint &as, con
 
 // a method to create a 256-bit number from 512-bit result to be able to perpetually
 // repeat the multiplication using registers
-bigint __device__ __forceinline__ get_lower_half(const bigint_wide &x) {
+bigint __device__ __forceinline__ get_upper_half(const bigint_wide &x) {
     bigint out{};
     #pragma unroll
     for (unsigned i = 0; i < TLC; i++)
-        out.limbs[i] = x.limbs[i];
+        out.limbs[i] = x.limbs[TLC + i];
     return out;
   }
 
 
 // The kernel that does element-wise multiplication of arrays in1 and in2 N times
 template <int N>
-__global__ void multVectorsKernel(const bigint *in1, const bigint *in2, bigint_wide *out, size_t n)
+__global__ void multVectorsKernel(bigint *in1, const bigint *in2, bigint_wide *out, size_t n)
 {
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
     if (tid < n)
@@ -142,17 +142,17 @@ __global__ void multVectorsKernel(const bigint *in1, const bigint *in2, bigint_w
         bigint i1 = in1[tid];
         const bigint i2 = in2[tid];
         bigint_wide o = {0};
-        #pragma unroll
+        // #pragma unroll
         for (int i = 0; i < N - 1; i++) {
             multiply_raw_device(i1, i2, o);
-            i1 = get_lower_half(o);
+            i1 = get_upper_half(o);
         }
         multiply_raw_device(i1, i2, out[tid]);
     }
 }
 
 template <int N>
-int mult_vectors(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
+int mult_vectors(bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
 {
     // Set the grid and block dimensions
     int threads_per_block = 128;
@@ -165,7 +165,7 @@ int mult_vectors(const bigint in1[], const bigint in2[], bigint_wide *out, size_
 
 
 extern "C"
-int multiply_test(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
+int multiply_test(bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
 {
     try
     {
@@ -179,13 +179,13 @@ int multiply_test(const bigint in1[], const bigint in2[], bigint_wide *out, size
 }
 
 extern "C"
-int multiply_bench(const bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
+int multiply_bench(bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
 {
     try
     {
         // for benchmarking, we need to give each thread a number of multiplication tasks that would ensure
         // that we're mostly measuring compute and not global memory accesses, which is why we do 255 multiplications here
-        mult_vectors<255>(in1, in2, out, n);
+        mult_vectors<500>(in1, in2, out, n);
         return CUDA_SUCCESS;
     }
     catch (const std::runtime_error &ex)

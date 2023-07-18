@@ -74,9 +74,13 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<BigUint>, Vec<BigUint>) {
     let random_bits = RandomBits::new(256);
     let mut a = Vec::with_capacity(n);
     let mut b = Vec::with_capacity(n);
-    for _ in 0..n {
-        a.push(random_bits.sample(&mut rng));
-        b.push(random_bits.sample(&mut rng));
+    for i in 0..n {
+        let mut a_sampled: BigUint = random_bits.sample(&mut rng);
+        a_sampled.set_bit(255, false);
+        a.push(a_sampled);
+        let mut b_sampled: BigUint = random_bits.sample(&mut rng);
+        b_sampled.set_bit(255, false);
+        b.push(b_sampled);
     }
     (a, b)
 }
@@ -87,7 +91,7 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<BigUint>, Vec<BigUint>) {
 fn test_mult() {
     let _ctx = rustacuda::quick_init();
 
-    let n = 1 << 15;
+    let n = 1 << 20;
     let (a, b) = sample_random_bigints256(n);
 
     let a_bigint: Vec<BigInt256> = a.iter().map(|a_num| 
@@ -104,6 +108,7 @@ fn test_mult() {
     res_device.copy_to(&mut res[..]).unwrap();
 
     for i in 0..n {
+        println!("i: {:?}", i);
         assert_eq!(res[i], BigInt512 { s: (a[i].clone() * b[i].clone()).to_u32_digits().try_into().unwrap() } );
     }
 }

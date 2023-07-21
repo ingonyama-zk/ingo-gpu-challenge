@@ -7,11 +7,13 @@ fn main() {
     let arch_type = env::var("ARCH_TYPE").unwrap_or(String::from("native"));
     let mut arch = String::from("-arch=");
     arch.push_str(&arch_type);
+    let ptx = "--generate-line-info";
 
     let mut nvcc = cc::Build::new();
 
     nvcc.cuda(true);
     nvcc.debug(false);
+    nvcc.flag(ptx);
     nvcc.flag(&arch);
     nvcc.files([
         "./cuda/mult.cu",

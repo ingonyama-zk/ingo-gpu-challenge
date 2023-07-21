@@ -74,7 +74,7 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<BigUint>, Vec<BigUint>) {
     let random_bits = RandomBits::new(256);
     let mut a = Vec::with_capacity(n);
     let mut b = Vec::with_capacity(n);
-    for i in 0..n {
+    for _ in 0..n {
         let mut a_sampled: BigUint = random_bits.sample(&mut rng);
         a_sampled.set_bit(255, false);
         a.push(a_sampled);
@@ -108,7 +108,6 @@ fn test_mult() {
     res_device.copy_to(&mut res[..]).unwrap();
 
     for i in 0..n {
-        println!("i: {:?}", i);
         assert_eq!(res[i], BigInt512 { s: (a[i].clone() * b[i].clone()).to_u32_digits().try_into().unwrap() } );
     }
 }

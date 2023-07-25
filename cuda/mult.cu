@@ -121,15 +121,21 @@ static __device__ __forceinline__ void multiply_raw_device(const bigint &as, con
     even[i + 1] = ptx::addc(even[i + 1], 0);
 }
 
+static __device__ __forceinline__ void add_limbs_device(const uint32_t *x, const uint32_t *y, uint32_t *r) {
+    r[0] = ptx::add_cc(x[0], y[0]);
+    for (unsigned i = 1; i < (TLC - 1); i++)
+        r[i] = ptx::addc_cc(x[i], y[i]);
+    r[TLC - 1] = ptx::addc(x[TLC - 1], y[TLC - 1]);
+}
+
 // a method to create a 256-bit number from 512-bit result to be able to perpetually
 // repeat the multiplication using registers
-bigint __device__ __forceinline__ get_upper_half(const bigint_wide &x) {
+bigint __device__ __forceinline__ get_256_bit_result(const bigint_wide &xs) {
+    const uint32_t *x = xs.limbs;
     bigint out{};
-    #pragma unroll
-    for (unsigned i = 0; i < TLC; i++)
-        out.limbs[i] = x.limbs[TLC + i];
+    add_limbs_device(x, &x[TLC], out.limbs);
     return out;
-  }
+}
 
 
 // The kernel that does element-wise multiplication of arrays in1 and in2 N times
@@ -142,10 +148,9 @@ __global__ void multVectorsKernel(bigint *in1, const bigint *in2, bigint_wide *o
         bigint i1 = in1[tid];
         const bigint i2 = in2[tid];
         bigint_wide o = {0};
-        // #pragma unroll
         for (int i = 0; i < N - 1; i++) {
             multiply_raw_device(i1, i2, o);
-            i1 = get_upper_half(o);
+            i1 = get_256_bit_result(o);
         }
         multiply_raw_device(i1, i2, out[tid]);
     }
@@ -184,7 +189,7 @@ int multiply_bench(bigint in1[], const bigint in2[], bigint_wide *out, size_t n)
     try
     {
         // for benchmarking, we need to give each thread a number of multiplication tasks that would ensure
-        // that we're mostly measuring compute and not global memory accesses, which is why we do 255 multiplications here
+        // that we're mostly measuring compute and not global memory accesses, which is why we do 500 multiplications here
         mult_vectors<500>(in1, in2, out, n);
         return CUDA_SUCCESS;
     }

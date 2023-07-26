@@ -1,7 +1,7 @@
 extern crate criterion;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use icicle_gpu_challenge::{BigInt256, sample_random_bigints256, multiply_cuda};
+use icicle_gpu_challenge::{BigInt256, sample_random_bigints256, multiply_cuda, TLC};
 use rustacuda::prelude::DeviceBuffer;
 
 
@@ -13,12 +13,16 @@ fn bench(c: &mut Criterion) {
 
     let (a, b) = sample_random_bigints256(SIZE);
 
-    let a_bigint: Vec<BigInt256> = a.iter().map(|a_num| 
-        BigInt256 { s: a_num.to_u32_digits().try_into().unwrap() }
-    ).collect();
-    let b_bigint: Vec<BigInt256> = b.iter().map(|b_num| 
-        BigInt256 { s: b_num.to_u32_digits().try_into().unwrap() }
-    ).collect();
+    let a_bigint: Vec<BigInt256> = a.iter().map(|a_num| {
+        let mut a_digits = a_num.to_u32_digits();
+        a_digits.resize(TLC, 0);
+        BigInt256 { s: a_digits.try_into().unwrap() }
+    }).collect();
+    let b_bigint: Vec<BigInt256> = b.iter().map(|b_num| {
+        let mut b_digits = b_num.to_u32_digits();
+        b_digits.resize(TLC, 0);
+        BigInt256 { s: b_digits.try_into().unwrap() }
+    }).collect();
     let mut a_device = DeviceBuffer::from_slice(&a_bigint[..]).unwrap();
     let mut b_device = DeviceBuffer::from_slice(&b_bigint[..]).unwrap();
 

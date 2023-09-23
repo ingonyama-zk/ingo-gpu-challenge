@@ -77,24 +77,6 @@ namespace ptx {
         return result;
     }
 
-    __device__ __forceinline__ uint32_t sub_cc(const uint32_t x, const uint32_t y) {
-        uint32_t result;
-        asm volatile("sub.cc.u32 %0, %1, %2;" : "=r"(result) : "r"(x), "r"(y));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t subc(const uint32_t x, const uint32_t y) {
-        uint32_t result;
-        asm volatile("subc.u32 %0, %1, %2;" : "=r"(result) : "r"(x), "r"(y));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t subc_cc(const uint32_t x, const uint32_t y) {
-        uint32_t result;
-        asm volatile("subc.cc.u32 %0, %1, %2;" : "=r"(result) : "r"(x), "r"(y));
-        return result;
-    }
-
 } // namespace ptx
 
 
@@ -241,6 +223,8 @@ static constexpr __device__ __forceinline__ bigint get_higher_with_slack(const b
         out.limbs[i] = __funnelshift_lc(xs.limbs[i + TLC - 1], xs.limbs[i + TLC], slack_bits);
     }
     return out;
+}
+
 static __device__ __forceinline__ void multiply_raw_device(const bigint &as, const bigint &bs, bigint_wide &rs) {
     const uint32_t *a = as.limbs;
     const uint32_t *b = bs.limbs;

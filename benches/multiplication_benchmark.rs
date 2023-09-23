@@ -1,7 +1,7 @@
 extern crate criterion;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use icicle_gpu_challenge::{BigInt256, sample_random_bigints256, multiply_cuda, TLC};
+use icicle_gpu_challenge::{BigInt256, sample_random_bigints256, multiply_cuda};
 use rustacuda::prelude::DeviceBuffer;
 use num_bigint::BigUint;
 use ark_ff::PrimeField;

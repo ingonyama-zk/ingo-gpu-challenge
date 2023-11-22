@@ -1,0 +1,4 @@
+*.nsys-rep
+*.ncu-rep
+*.lock
+**/target

@@ -1,10 +1,10 @@
-#![allow(unused_imports)]
-
 use rustacuda::{memory::{DeviceCopy, DevicePointer}, prelude::*};
-use num_bigint::BigUint;
-use ark_bls12_381::fr::Fr;
-use ark_ff::PrimeField;
+use ark_bn254::fr::Fr;
 use ark_std::UniformRand;
+#[cfg(test)]
+use ark_ff::PrimeField;
+#[cfg(test)]
+use num_bigint::BigUint;
 
 
 pub const TLC: usize = 8;

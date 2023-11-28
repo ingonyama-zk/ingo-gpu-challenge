@@ -1,5 +1,5 @@
 use rustacuda::{memory::{DeviceCopy, DevicePointer}, prelude::*};
-use ark_bn254::fr::Fr;
+use ark_bls12_377::fr::Fr;
 use ark_std::UniformRand;
 #[cfg(test)]
 use ark_ff::PrimeField;
@@ -78,7 +78,7 @@ pub fn sample_random_bigints256(n: usize) -> (Vec<Fr>, Vec<Fr>) {
 }
 
 // A test to check the correctness of the CUDA multiplier;
-// Uses `num_bigint` crate to check against.
+// Uses `arkworks` crate to check against.
 #[test]
 fn test_mult() {
     let _ctx = rustacuda::quick_init();

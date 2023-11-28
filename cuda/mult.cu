@@ -59,6 +59,12 @@ namespace ptx {
         return result;
     }
 
+    __device__ __forceinline__ uint32_t mad_lo(const uint32_t x, const uint32_t y, const uint32_t z) {
+        uint32_t result;
+        asm volatile("mad.lo.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
+        return result;
+    }
+
     __device__ __forceinline__ uint32_t madc_lo(const uint32_t x, const uint32_t y, const uint32_t z) {
         uint32_t result;
         asm volatile("madc.lo.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
@@ -84,62 +90,6 @@ namespace ptx {
     }
 
     __device__ __forceinline__ uint32_t madc_hi_cc(const uint32_t x, const uint32_t y, const uint32_t z) {
-        uint32_t result;
-        asm volatile("madc.hi.cc.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t mul_lo_msb(const uint32_t x, const uint32_t y) {
-        printf("Inside mul_lo_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm("mul.lo.u32 %0, %1, %2;" : "=r"(result) : "r"(x), "r"(y));
-        return result;
-    }
-    
-    __device__ __forceinline__ uint32_t mul_hi_msb(const uint32_t x, const uint32_t y) {
-        printf("Inside mul_hi_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm("mul.hi.u32 %0, %1, %2;" : "=r"(result) : "r"(x), "r"(y));
-        return result;
-    }
-    
-    __device__ __forceinline__ uint32_t mad_lo_cc_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside mad_lo_cc_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm volatile("mad.lo.cc.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t madc_lo_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside madc_lo_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm volatile("madc.lo.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t madc_hi_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside madc_hi_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm volatile("madc.hi.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-    
-    __device__ __forceinline__ uint32_t madc_lo_cc_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside madc_lo_cc_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm volatile("madc.lo.cc.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-    
-    __device__ __forceinline__ uint32_t mad_hi_cc_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside mad_hi_cc_msb: %u x %u \n", x, y);
-        uint32_t result;
-        asm volatile("mad.hi.cc.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
-        return result;
-    }
-
-    __device__ __forceinline__ uint32_t madc_hi_cc_msb(const uint32_t x, const uint32_t y, const uint32_t z) {
-        printf("Inside madc_hi_cc_msb: %u x %u \n", x, y);
         uint32_t result;
         asm volatile("madc.hi.cc.u32 %0, %1, %2, %3;" : "=r"(result) : "r"(x), "r"(y), "r"(z));
         return result;
@@ -217,10 +167,10 @@ template <bool CARRY_OUT = false, bool CARRY_IN = false>
 static __device__ __forceinline__ uint32_t mad_row(uint32_t *odd, uint32_t *even, const uint32_t *a, uint32_t bi, size_t n = TLC, uint32_t ci = 0, uint32_t di = 0, uint32_t carry_for_high = 0, uint32_t carry_for_low = 0) {
     cmad_n<CARRY_IN>(odd, a + 1, bi, n - 2, carry_for_low);
     odd[n - 2] = ptx::madc_lo_cc(a[n - 1], bi, ci);
-    odd[n - 1] = ptx::madc_hi_cc(a[n - 1], bi, di);
+    odd[n - 1] = CARRY_OUT ? ptx::madc_hi_cc(a[n - 1], bi, di) : ptx::madc_hi(a[n - 1], bi, di);
     uint32_t cr = CARRY_OUT ? ptx::addc(0, 0) : 0;
     cmad_n(even, a, bi, n);
-    odd[n - 1] = ptx::addc_cc(odd[n - 1], carry_for_high);
+    odd[n - 1] = CARRY_OUT ? ptx::addc_cc(odd[n - 1], carry_for_high) : ptx::addc(odd[n - 1], carry_for_high);
     if (CARRY_OUT)
         cr = ptx::addc(cr, 0);
     return cr;
@@ -232,11 +182,14 @@ static __device__ __forceinline__ void mad_row_msb(uint32_t *odd, uint32_t *even
     odd[EVEN_PHASE ? (n - 1) : (n - 2)] = ptx::madc_lo_cc(a[n - 1], bi, 0);
     odd[EVEN_PHASE ? n : (n - 1)] = ptx::madc_hi(a[n - 1], bi, 0);
     cmad_n_msb<EVEN_PHASE>(even, EVEN_PHASE ? (a + 1) : a, bi, n - 1);
-    odd[EVEN_PHASE ? n : (n - 1)] = ptx::addc_cc(odd[EVEN_PHASE ? n : (n - 1)], 0);
+    odd[EVEN_PHASE ? n : (n - 1)] = ptx::addc(odd[EVEN_PHASE ? n : (n - 1)], 0);
 }
 
 static __device__ __forceinline__ void cmad_n_lsb(uint32_t *acc, const uint32_t *a, uint32_t bi, size_t n = TLC) {
-    acc[0] = ptx::mad_lo_cc(a[0], bi, acc[0]);
+    if (n > 1)
+        acc[0] = ptx::mad_lo_cc(a[0], bi, acc[0]);
+    else
+        acc[0] = ptx::mad_lo(a[0], bi, acc[0]);
 
     size_t i;
     #pragma unroll
@@ -251,8 +204,10 @@ static __device__ __forceinline__ void cmad_n_lsb(uint32_t *acc, const uint32_t 
 }
 
 static __device__ __forceinline__ void mad_row_lsb(uint32_t *odd, uint32_t *even, const uint32_t *a, uint32_t bi, size_t n = TLC) {
-    if (n > 1) cmad_n_lsb(odd, a + 1, bi, n - 1);
-    cmad_n_lsb(even, a, bi, n);
+    if (bi != 0) {
+        if (n > 1) cmad_n_lsb(odd, a + 1, bi, n - 1);
+        cmad_n_lsb(even, a, bi, n);
+    }
     return;
 }
 
@@ -309,16 +264,22 @@ static __device__ __forceinline__ void multiply_short_raw_device(const uint32_t 
     even[i + 1] = ptx::addc(even[i + 1], 0);
 }
 
-static __device__ __forceinline__ void multiply_lsb_raw_device(const bigint &as, const bigint &bs, bigint_wide &rs) {
-    // r = a * b is correcrt for the first TLC digits
+static __device__ __forceinline__ void multiply_and_add_lsb_raw_device(const bigint &as, const bigint &bs, bigint &cs, bigint_wide &rs) {
+    // r = a * b is correct for the first TLC digits
     const uint32_t *a = as.limbs;
     const uint32_t *b = bs.limbs;
     uint32_t *even = rs.limbs;
     __align__(16) uint32_t odd[2 * TLC - 2];
-    mul_n(even, a, b[0]);
-    mul_n(odd, a + 1, b[0], TLC - 1);
-    mad_row_lsb(&even[2], &odd[0], a, b[1], TLC - 1);
     size_t i;
+    if (b[0] == UINT32_MAX) {
+        add_sub_limbs_device<true, false>(cs.limbs, a, even, TLC);
+        for (i = 0; i < TLC - 1; i += 1)
+            odd[i] = a[i];
+    } else {
+        mul_n_plus_extra(even, a, b[0], cs.limbs, TLC);
+        mul_n(odd, a + 1, b[0], TLC - 1);
+    }
+    mad_row_lsb(&even[2], &odd[0], a, b[1], TLC - 1);
 #pragma unroll
     for (i = 2; i < TLC - 1; i += 2) {
         mad_row_lsb(&odd[i], &even[i], a, b[i], TLC - i);
@@ -333,7 +294,7 @@ static __device__ __forceinline__ void multiply_lsb_raw_device(const bigint &as,
 }
 
 static __device__ __forceinline__ void multiply_msb_raw_device(const bigint& as, const bigint& bs, bigint_wide& rs) {
-    // r = a * b is almost correct for the last TLC digits
+    // r = a * b is almost correct for the last TLC + 1 digits
     const uint32_t *a = as.limbs;
     const uint32_t *b = bs.limbs;
     uint32_t *even = rs.limbs;
@@ -345,17 +306,11 @@ static __device__ __forceinline__ void multiply_msb_raw_device(const bigint& as,
     size_t i;
 #pragma unroll
     for (i = 2; i < TLC - 1; i += 2) {
-        // printf("odd[TLC]: %u\n", odd[TLC]);
         mad_row_msb<true>(&even[TLC - 2], &odd[TLC - 2], &a[TLC - i - 1], b[i - 1], i + 1);
-        // printf("odd[TLC]: %u\n", odd[TLC]);
         mad_row_msb<false>(&odd[TLC - 2], &even[TLC - 2], &a[TLC - i - 2], b[i], i + 2);
     }
-    // printf("odd[TLC]: %u\n", odd[TLC]);
     mad_row(&even[TLC], &odd[TLC - 2], a, b[TLC - 1]);
-    // printf("odd[TLC]: %u\n", odd[TLC]);
 
-    // printf("even[TLC-1]: %u; odd[TLC-2]: %u; even[TLC]: %u; odd[TLC-1]: %u; even[TLC+1]: %u; odd[TLC]: %u; even[TLC+2]: %u; odd[TLC+1]: %u; even[TLC+3]: %u; odd[TLC+2]: %u\n", even[TLC - 1], odd[TLC - 2], even[TLC], odd[TLC - 1], even[TLC + 1], odd[TLC], even[TLC + 2], odd[TLC + 1], even[TLC + 3], odd[TLC + 2]);
-//even[TLC-1]: 3801688580; odd[TLC-2]: 106290671; even[TLC]: 467176770; odd[TLC-1]: 2631493773; even[TLC+1]: 3968928959; odd[TLC]: 2141569568
     // merge |even| and |odd|
     ptx::add_cc(even[TLC - 1], odd[TLC - 2]);
     for (i = TLC - 1; i < 2 * TLC - 2; i++)
@@ -363,7 +318,7 @@ static __device__ __forceinline__ void multiply_msb_raw_device(const bigint& as,
     even[i + 1] = ptx::addc(even[i + 1], 0);
 }
 
-static constexpr unsigned slack_bits = 2;
+static constexpr unsigned slack_bits = 3;
 
 static constexpr __device__ __forceinline__ bigint get_higher_with_slack(const bigint_wide &xs) {
     bigint out{};
@@ -378,6 +333,13 @@ static constexpr __device__ __forceinline__ bigint get_higher(const bigint_wide 
     for (unsigned i = 0; i < TLC; i++) {
         out.limbs[i] = xs.limbs[i + TLC];
     }
+    return out;
+}
+
+static constexpr __device__ __forceinline__ bigint get_lower(const bigint_wide &xs) {
+    bigint out{};
+    for (unsigned i = 0; i < TLC; i++)
+        out.limbs[i] = xs.limbs[i];
     return out;
 }
 
@@ -402,58 +364,50 @@ static __device__ __forceinline__ void multiply_raw_device(const bigint &as, con
         r[i] = ptx::addc_cc(r[i], 0);
 }
 
-static constexpr __device__ __forceinline__ bigint get_lower(const bigint_wide &xs) {
-    bigint out{};
-    for (unsigned i = 0; i < TLC; i++)
-        out.limbs[i] = xs.limbs[i];
-    return out;
-}
-
 static constexpr __device__ __forceinline__ bigint get_m() {
-    return bigint { 0xbe1de925, 0x620703a6, 0x09e880ae, 0x71448520, 0x68073014, 0xab074a58, 0x623a04a7, 0x54a47462 };
+    return bigint {0x151e79ea, 0xf5204c21, 0x8d69e258, 0xfd0a180b, 0xfaa80548, 0xe4e51e49, 0xc40b2c9e, 0x36d9491e};
 }
 
-static constexpr __device__ __forceinline__ bigint get_modulus() {
-    return bigint { 0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72 };
+static constexpr __device__ __forceinline__ bigint get_neg_modulus() {
+    return bigint {0xffffffff, 0xf5ee7fff, 0x2ffffffe, 0xa6558901, 0xa3c84ffe, 0x9f4bb2e1, 0x65d35aa9, 0xed549aa1};
 }
 
 static constexpr __device__ __forceinline__ bigint_wide get_modulus_wide() {
-    return bigint_wide { 0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
-                         0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 };
+    return bigint_wide {
+      0x00000001, 0x0a118000, 0xd0000001, 0x59aa76fe, 0x5c37b001, 0x60b44d1e, 0x9a2ca556, 0x12ab655e,
+      0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
+}
+
+static constexpr __device__ __forceinline__ bigint_wide get_two_modulus_wide() {
+    return bigint_wide { 
+      0x00000002, 0x14230000, 0xa0000002, 0xb354edfd, 0xb86f6002, 0xc1689a3c, 0x34594aac, 0x2556cabd,
+      0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
 }
 
 static __device__ __forceinline__ uint32_t sub_limbs_partial_device(const bigint_wide &as, const bigint_wide &bs, bigint_wide &rs, uint32_t num_limbs) {
     const uint32_t *a = as.limbs;
     const uint32_t *b = bs.limbs;
     uint32_t *r = rs.limbs;
-    r[0] = ptx::sub_cc(a[0], b[0]);
-#pragma unroll
-    for (unsigned i = 1; i < num_limbs; i++)
-        r[i] = ptx::subc_cc(a[i], b[i]);
-    return ptx::subc(0, 0);
+    return add_sub_limbs_device<true, true>(a, b, r, num_limbs);
 }
 
-// a method that reduces modulo some prime number (currently - bls12-381 scalar field prime)
+// a method that reduces modulo some prime number (currently - bls12-377 scalar field prime)
 static __device__ __forceinline__ bigint reduce(const bigint_wide& xs) {
     bigint xs_hi = get_higher_with_slack(xs); // xy << slack_bits
     bigint_wide l = {};
     multiply_msb_raw_device(xs_hi, get_m(), l);      // MSB mult
     bigint l_hi = get_higher(l);
-    bigint_wide lp = {};
-    multiply_lsb_raw_device(l_hi, get_modulus(), lp); // LSB mult
     bigint_wide r_wide = {};
-    sub_limbs_partial_device(xs, lp, r_wide, TLC);
+    bigint xs_lo = get_lower(xs);
+    multiply_and_add_lsb_raw_device(l_hi, get_neg_modulus(), xs_lo, r_wide); // LSB mult
     bigint_wide r_wide_reduced = {};
-    for (unsigned i = 0; i < 2; i++)
-    {
-        uint32_t carry = sub_limbs_partial_device(r_wide, get_modulus_wide(), r_wide_reduced, TLC);
-        if (carry == 0) // continue to reduce
-            r_wide = r_wide_reduced;
-        else // done
-            break;
-    }
-    
-    // number of wrap around is bounded by TLC + 1 times.
+    // uint32_t carry = sub_limbs_partial_device(r_wide, get_two_modulus_wide(), r_wide_reduced, TLC);
+    // if (carry == 0) // continue to reduce
+    //     r_wide = r_wide_reduced;
+    uint32_t carry = sub_limbs_partial_device(r_wide, get_modulus_wide(), r_wide_reduced, TLC);
+    if (carry == 0) // continue to reduce
+        r_wide = r_wide_reduced;
+
     bigint r = get_lower(r_wide);
     return r;
 }
@@ -469,7 +423,6 @@ __global__ void multVectorsKernel(bigint *in1, const bigint *in2, bigint *out, s
         bigint i1 = in1[tid];
         const bigint i2 = in2[tid];
         bigint_wide o = {0};
-        // #pragma unroll
         for (int i = 0; i < N - 1; i++) {
             multiply_raw_device(i1, i2, o);
             i1 = reduce(o);

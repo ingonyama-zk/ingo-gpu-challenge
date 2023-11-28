@@ -8,7 +8,7 @@ use ark_ff::PrimeField;
 
 
 // This number should be large enough to fully saturate the GPU
-const SIZE: usize = 1 << 25;
+const SIZE: usize = 1 << 23;
 
 fn bench(c: &mut Criterion) {
     let _ctx = rustacuda::quick_init();

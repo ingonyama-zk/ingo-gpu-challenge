@@ -14,7 +14,7 @@ harness = false
 
 [dependencies]
 num-bigint = { version = "0.4", features = ["rand"] }
-rand = "*"
+rand = "0.8"
 
 rustacuda = "0.1"
 

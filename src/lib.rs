@@ -1,6 +1,6 @@
 use rustacuda::{memory::{DeviceCopy, DevicePointer}, prelude::*};
 use num_bigint::{RandomBits, BigUint};
-use rand::prelude::Distribution;
+use rand::prelude::*;
 
 
 const TLC: usize = 8;
